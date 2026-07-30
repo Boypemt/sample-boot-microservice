@@ -37,6 +37,14 @@ public class TransactionController {
     @Autowired
     private TransactionRepository transactionRepository;
 
+    /**
+     * The Assembler, exactly as in the 3-tier sample. It fills in everything this
+     * service already knows. Already done for you - the interesting field is the
+     * one it cannot fill, and that is what step 4 is about.
+     */
+    @Autowired
+    private TransactionMapper transactionMapper;
+
     // TODO: (step 4) Let Spring give you the Feign client you annotated in step 3:
     //
     //   @Autowired
@@ -60,9 +68,18 @@ public class TransactionController {
         //       console of book-service when you run it: you will see the call
         //       arrive there.
         //
-        // TODO: (step 4) Save the transaction, then answer 201 with the saved
-        //       transaction PLUS the two fields that came from the other service:
+        // TODO: (step 4) Save the transaction. The mapper turns the DTO into a
+        //       row, and the date is yours to set - not the caller's, or a client
+        //       could backdate a borrow:
         //
+        //         Transaction transaction = transactionMapper.toEntity(dto);
+        //         transaction.setTransactionDate(LocalDate.now());
+        //         Transaction saved = transactionRepository.save(transaction);
+        //
+        // TODO: (step 4) Answer 201 with the saved transaction PLUS the two
+        //       fields that came from the other service:
+        //
+        //         TransactionDTO result = transactionMapper.toDto(saved);
         //         result.setBookTitle(book.getTitle());
         //         result.setServedBy(book.getServedBy());
         //
@@ -89,32 +106,39 @@ public class TransactionController {
     /**
      * GET /api/transactions - list what we have recorded.
      * <p>
-     * This one needs no help from anybody: every field it returns is ours.
+     * Our database holds a bookId and nothing else about the book. Run this now,
+     * before you change anything: bookTitle comes back null on every row.
      */
     @GetMapping("/transactions")
     public ResponseEntity<List<TransactionDTO>> list() {
         List<TransactionDTO> result = new ArrayList<>();
         for (Transaction transaction : transactionRepository.findAll()) {
-            result.add(toDto(transaction));
+
+            TransactionDTO dto = transactionMapper.toDto(transaction);
+
+            // TODO: (step 4) Fill in the title for this row, the same way the
+            //       POST above does it:
+            //
+            //         BookDTO book = bookClient.getBook(transaction.getBookId());
+            //         dto.setBookTitle(book.getTitle());
+            //         dto.setServedBy(book.getServedBy());
+            //
+            // TODO: (step 5) Wrap that in a try/catch. If book-service does not
+            //       answer, log it and leave bookTitle null - do NOT return 503
+            //       here.
+            //
+            //       Think about why this differs from the POST: a borrow that was
+            //       never checked is worthless, so 503 is right there. A list is
+            //       still true without the titles, so throwing it away would be
+            //       worse than returning it incomplete.
+            //
+            //       Then count the requests. Ten transactions, ten HTTP calls.
+            //       The 3-tier version did this with one join. That is what the
+            //       split costs, and the next lesson is about paying less.
+
+            result.add(dto);
         }
         return new ResponseEntity<>(result, HttpStatus.OK);
     }
 
-    private TransactionDTO toDto(Transaction transaction) {
-        TransactionDTO dto = new TransactionDTO();
-        dto.setId(transaction.getId());
-        dto.setType(transaction.getType());
-        dto.setBookId(transaction.getBookId());
-        dto.setBorrowerName(transaction.getBorrowerName());
-        return dto;
-    }
-
-    private Transaction toEntity(TransactionDTO dto) {
-        Transaction transaction = new Transaction();
-        transaction.setType(dto.getType());
-        transaction.setBookId(dto.getBookId());
-        transaction.setBorrowerName(dto.getBorrowerName());
-        transaction.setTransactionDate(LocalDate.now());
-        return transaction;
-    }
 }

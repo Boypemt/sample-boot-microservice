@@ -57,6 +57,23 @@ The one idea behind all six steps:
 > reach the book database, and it does not know book-service's address. So it
 > asks the naming server who has books, and then asks that service over HTTP.
 
+**About the mappers.** `BookMapper` and `TransactionMapper` are already written —
+same MapStruct, same annotations as yesterday's 3-tier sample, nothing to do in
+them. You will see `transactionMapper.toDto(...)` in the code and it does exactly
+what you expect.
+
+One line in `TransactionMapper` is worth reading anyway:
+
+```java
+@Mapping(target = "bookTitle", ignore = true)
+```
+
+Yesterday that same field was filled by the mapper, for free, in one line:
+`@Mapping(source = "book.title", target = "bookTitle")`. It cannot be any more,
+because there is no book to read it from — only a `bookId`. What a mapper did in
+one program now takes an HTTP call. That is today's lesson, written down in the
+smallest place it shows up.
+
 ---
 
 # The six steps
@@ -176,9 +193,11 @@ Then finish `record(...)`:
 
 1. `@Autowired BookClient bookClient;`
 2. ask book-service for the book
-3. save the transaction
-4. answer **201** with the saved transaction **plus** `bookTitle` and `servedBy`
-   from the answer
+3. save the transaction — `transactionMapper.toEntity(dto)`, then set the date
+   yourself. The date is the server's to decide, not the caller's, or a client
+   could backdate a borrow
+4. answer **201** with `transactionMapper.toDto(saved)` **plus** `bookTitle` and
+   `servedBy` from the other service's answer
 
 Send the POST from Postman and look at two things:
 
@@ -192,7 +211,16 @@ Send the POST from Postman and look at two things:
 - **The console of book-service** shows the call arriving there. Two programs, one
   request.
 
-✅ `itRecordsABorrowAndAddsWhatTheOtherServiceKnows` passes.
+Now do the same in `list()`, further down the same file. GET the list first and
+look at it: every row says `"bookTitle": null`, because the list never asks
+anybody. Fill it in for each row, the same three lines as above.
+
+Then count the calls. Ten transactions is ten HTTP requests. The 3-tier version
+got the same answer from one join. That is the price of the split, and it is a
+better thing to see than to be told.
+
+✅ `itRecordsABorrowAndAddsWhatTheOtherServiceKnows`,
+`listingAsksTheOtherServiceForEachTitle` pass.
 
 ---
 
@@ -245,6 +273,27 @@ feign.client.config.default.connectTimeout=2000
 feign.client.config.default.readTimeout=2000
 ```
 
+### 5c. The same failure, a different answer
+
+With book-service still stopped, GET the list. Decide what it should do before
+you write anything.
+
+503, like the POST? No. A borrow that was never checked is worthless, so refusing
+it is right. But the transactions we already recorded are still true — we just
+cannot name the books. Throwing the whole list away to hide that would be worse
+than handing it over incomplete.
+
+So `list()` catches, logs, and leaves `bookTitle` null:
+
+```java
+catch (Exception e) {
+    LOGGER.warn("no title for book {}: {}", transaction.getBookId(), e.getMessage());
+}
+```
+
+Same failure, two different right answers, because the two requests are worth
+different things. There is no rule that decides this for you.
+
 **The uncomfortable question to end on:** the 3-tier app could not fail this way.
 We have made the application less reliable by splitting it up — transaction-service
 is now only as available as book-service is. What did we get in exchange?
@@ -252,7 +301,8 @@ is now only as available as book-service is. What did we get in exchange?
 (Answers worth having: the two can be deployed, scaled and rewritten separately.
 Step 6 shows the scaling half.)
 
-✅ `anUnknownBookIs400`, `bookServiceBeingDownIs503` pass.
+✅ `anUnknownBookIs400`, `bookServiceBeingDownIs503`,
+`listingSurvivesBookServiceBeingDown` pass.
 
 ---
 
@@ -263,17 +313,36 @@ Step 6 shows the scaling half.)
 > 💡 **Solution:**
 > [`BookController.java`](https://github.com/cnacha-mfu/sample-boot-microservice-solution/blob/main/library-book-service/src/main/java/th/mfu/book/BookController.java)
 
-First make the service say who it is. In `toDto(...)`:
+First make the service say who it is. In `thisPort()`, return the real port
+instead of 0:
 
 ```java
-dto.setServedBy(Integer.parseInt(environment.getProperty("server.port")));
+private int thisPort() {
+    return Integer.parseInt(environment.getProperty("server.port"));
+}
 ```
+
+One method, and **both** endpoints are fixed — the mapper takes the port as a
+parameter, so there is only one place to change. That is why it is not written
+inline in `listBooks()` and `getBook()`.
 
 Then start a **second** book-service, on another port:
 
 ```bash
 mvn -pl library-book-service spring-boot:run -Dspring-boot.run.arguments=--server.port=8091
 ```
+
+**On Windows, in PowerShell, put quotes round the argument:**
+
+```powershell
+mvn -pl library-book-service spring-boot:run "-Dspring-boot.run.arguments=--server.port=8091"
+```
+
+Without them PowerShell breaks the argument in two at the dot, and Maven reads
+the second half as a goal:
+`[ERROR] Unknown lifecycle phase ".run.arguments=--server.port=8091"`. Nothing is
+wrong with the command — only the shell. The quoted form works everywhere, so
+use it if you are unsure.
 
 Wait for the dashboard to show **2** instances of `LIBRARY-BOOK-SERVICE`, and
 then be patient for a little longer.
@@ -302,7 +371,7 @@ The requests keep working. Compare that with 5b.
 ## Wrap-up
 
 ```bash
-mvn test        # 15 tests, all green
+mvn test        # 17 tests, all green
 ```
 
 | Idea | Where it is |
@@ -340,6 +409,9 @@ Then: **`lab-web-microservice`**. Same shape, different domain.
 | `Connection refused: localhost:8761` | The naming server is not running. Start it first |
 | `Port 8090 is already in use` | A copy is still running from earlier. Note 8080 and 8081 are left free on purpose: that is where yesterday's 3-tier sample runs |
 | The POST answers 500 | Step 4 not finished, or step 5's `catch` blocks are missing |
-| `servedBy` is always 0 | Step 6 — `setServedBy` not added |
+| `bookTitle` is null in the **list**, but right in the POST answer | Step 4 — the `list()` half is not done. The POST asks book-service; the list does not, until you make it |
+| `servedBy` is always 0 | Step 6 — `thisPort()` still returns 0 |
+| `Unknown lifecycle phase ".run.arguments=..."` | PowerShell split the argument. Put quotes round the whole `-D...` — see step 6 |
+| `No qualifying bean of type 'th.mfu.book.BookMapper'`, or a `java.lang.Error` with no message | VS Code compiles into `target/` too and can leave a broken class there after you edit a mapper. `mvn clean` is not always enough — delete the `target` folders and build again |
 | `servedBy` never changes | Only one copy is running - or you tried too soon. transaction-service re-reads the list every few seconds |
 | The transaction list is empty after a restart | Correct. The database is in memory |

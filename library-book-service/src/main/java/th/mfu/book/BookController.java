@@ -33,11 +33,19 @@ public class BookController {
     @Autowired
     private Environment environment;
 
+    /**
+     * The Assembler, exactly as in the 3-tier sample. Nobody writes the class:
+     * MapStruct generated it during the build and componentModel = "spring" made
+     * it a bean, so it can be injected like any other. Already done for you.
+     */
+    @Autowired
+    private BookMapper bookMapper;
+
     @GetMapping("/books")
     public ResponseEntity<List<BookDTO>> listBooks() {
         List<BookDTO> books = new ArrayList<>();
         for (Book book : bookRepository.findAll()) {
-            books.add(toDto(book));
+            books.add(bookMapper.toDto(book, thisPort()));
         }
         return new ResponseEntity<>(books, HttpStatus.OK);
     }
@@ -48,28 +56,26 @@ public class BookController {
         if (!book.isPresent()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        return new ResponseEntity<>(toDto(book.get()), HttpStatus.OK);
+        return new ResponseEntity<>(bookMapper.toDto(book.get(), thisPort()), HttpStatus.OK);
     }
 
     /**
-     * Entity in, DTO out. Six lines, written by hand - you already know how to
-     * let MapStruct do this, and today is not about that.
+     * Which port THIS copy of the service is running on. The mapper puts whatever
+     * this returns into servedBy - so right now every answer says 0.
      */
-    private BookDTO toDto(Book book) {
-        BookDTO dto = new BookDTO();
-        dto.setId(book.getId());
-        dto.setTitle(book.getTitle());
-        dto.setAuthor(book.getAuthor());
-        dto.setYear(book.getYear());
+    private int thisPort() {
 
-        // TODO: (step 6) Put the port of THIS copy of the service into the answer:
+        // TODO: (step 6) Return the real port instead of 0:
         //
-        //   dto.setServedBy(Integer.parseInt(environment.getProperty("server.port")));
+        //   return Integer.parseInt(environment.getProperty("server.port"));
         //
         // Then start book-service a second time on another port. Every call
         // through transaction-service will show one port or the other, and that
         // is the load balancer choosing for you.
+        //
+        // The load balancer works without this - but you cannot SEE it working,
+        // and a lesson you cannot see is a lesson nobody believes.
 
-        return dto;
+        return 0;
     }
 }
