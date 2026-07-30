@@ -4,10 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * book-service. Port 8080.
+ * book-service. Port 8090.
  */
 // TODO: (step 1) Right now this is an ordinary Spring Boot app. It answers on
-//       port 8080 and nobody else knows it exists.
+//       port 8090 and nobody else knows it exists.
 //
 //       Start the naming server, then open http://localhost:8761/ and look at
 //       the list of registered services. It is empty.

@@ -43,7 +43,7 @@ session teaches follows from that one difference.**
 | Module | What it owns | Port |
 | --- | --- | --- |
 | `naming-server` | nothing — it keeps the list of running services | 8761 |
-| `library-book-service` | books, and the book database | 8080 |
+| `library-book-service` | books, and the book database | 8090 |
 | `library-transaction-service` | borrow/return records, and their database | 8100 |
 
 ```
@@ -52,7 +52,7 @@ session teaches follows from that one difference.**
                           ^                  ^
                 register  |                  |  register + ask
                           |                  |
-   library-book-service :8080  <---HTTP---  library-transaction-service :8100
+   library-book-service :8090  <---HTTP---  library-transaction-service :8100
 ```
 
 `library-transaction-service` does **not** depend on `library-book-service` in
@@ -72,7 +72,7 @@ Then start the three programs, **in this order**, each in its own terminal:
 
 ```bash
 mvn -pl naming-server                spring-boot:run    # 1st - 8761
-mvn -pl library-book-service         spring-boot:run    # 2nd - 8080
+mvn -pl library-book-service         spring-boot:run    # 2nd - 8090
 mvn -pl library-transaction-service  spring-boot:run    # 3rd - 8100
 ```
 
@@ -90,7 +90,7 @@ requests are in the same order as the steps, and each one says which step makes 
 work. Or use curl:
 
 ```bash
-curl http://localhost:8080/api/books/10002
+curl http://localhost:8090/api/books/10002
 
 curl -X POST -H "Content-Type: application/json" \
      -d '{"type":"BORROW","bookId":10002,"borrowerName":"Alice Johnson"}' \
@@ -105,6 +105,20 @@ mvn test
 
 15 tests. They fail at the start; each step turns more of them green. Do not edit
 the tests - make them pass.
+
+Maven stops at the first module that fails, so early on you only see
+book-service's failures. To see all of them at once:
+
+```bash
+mvn test -fae
+```
+
+You can also test one service at a time:
+
+```bash
+mvn test -pl library-book-service
+mvn test -pl library-transaction-service
+```
 
 ---
 

@@ -25,12 +25,12 @@ Three terminals, in this order:
 
 ```bash
 mvn -pl naming-server                spring-boot:run    # 8761
-mvn -pl library-book-service         spring-boot:run    # 8080
+mvn -pl library-book-service         spring-boot:run    # 8090
 mvn -pl library-transaction-service  spring-boot:run    # 8100
 ```
 
 Dashboard: <http://localhost:8761/> · Books:
-<http://localhost:8080/api/books/10002>
+<http://localhost:8090/api/books/10002>
 
 Check your work at any time:
 
@@ -48,7 +48,7 @@ work down the list.
 | Module | Owns | Port |
 | --- | --- | --- |
 | `naming-server` | the list of running services | 8761 |
-| `library-book-service` | books + the book database | 8080 |
+| `library-book-service` | books + the book database | 8090 |
 | `library-transaction-service` | borrow/return records + their database | 8100 |
 
 The one idea behind all six steps:
@@ -91,7 +91,7 @@ Restart, **wait about 30 seconds**, reload the dashboard.
 `LIBRARY-BOOK-SERVICE` is on the list.
 
 **Why bother?** Because `spring.application.name` is now a name anyone can look
-up. Nobody has to write down `localhost:8080` — and in step 6 that name will
+up. Nobody has to write down `localhost:8090` — and in step 6 that name will
 point at two different ports at once.
 
 ✅ `itJoinsTheNamingServer` passes.
@@ -115,7 +115,9 @@ Two services on the dashboard now.
 There is nothing new in this step, and that is the point: registering a service is
 boilerplate you will write once per service and then forget about.
 
-✅ `itHasANameAndAPort`, `itJoinsTheNamingServer` pass.
+✅ `itJoinsTheNamingServer` passes for transaction-service too.
+(`itHasANameAndAPort` was already green — the name and the port were in
+`application.properties` from the start.)
 
 ---
 
@@ -182,7 +184,7 @@ Send the POST from Postman and look at two things:
 
 ```json
 { "id": 1, "type": "BORROW", "bookId": 10002, "borrowerName": "Alice Johnson",
-  "bookTitle": "1984", "servedBy": 8080 }
+  "bookTitle": "1984", "servedBy": 8090 }
 ```
 
 - `bookTitle` is **not in our database**. It arrived from another program while
@@ -270,20 +272,27 @@ dto.setServedBy(Integer.parseInt(environment.getProperty("server.port")));
 Then start a **second** book-service, on another port:
 
 ```bash
-mvn -pl library-book-service spring-boot:run -Dspring-boot.run.arguments=--server.port=8081
+mvn -pl library-book-service spring-boot:run -Dspring-boot.run.arguments=--server.port=8091
 ```
 
-Wait for the dashboard to show **2** instances of `LIBRARY-BOOK-SERVICE`.
+Wait for the dashboard to show **2** instances of `LIBRARY-BOOK-SERVICE`, and
+then be patient for a little longer.
+
+The dashboard is the naming server's list. transaction-service keeps its *own*
+copy of that list and re-reads it every few seconds, so for a moment the server
+knows about two copies and the caller still knows about one. If every answer says
+the same port, you are almost certainly looking at that gap rather than at a
+bug - wait a few tens of seconds and send it again.
 
 Now POST the same borrow again, and again, and again. `servedBy` changes:
-`8080`, `8081`, `8080`, …
+`8090`, `8091`, `8090`, …
 
 **Nothing in transaction-service changed.** It still asks for
 `"library-book-service"`. The name pointed at one program a minute ago and points
 at two now, and the load balancer picks one per call. That is what the name bought
 you in step 1.
 
-Try this too: stop the copy on 8080 while the other one runs, and keep posting.
+Try this too: stop the copy on 8090 while the other one runs, and keep posting.
 The requests keep working. Compare that with 5b.
 
 ✅ `itSaysWhichCopyAnswered` passes — `mvn test` is fully green.
@@ -329,8 +338,8 @@ Then: **`lab-web-microservice`**. Same shape, different domain.
 | The dashboard stays empty | Step 1 — the eureka lines, or you did not wait 30 seconds |
 | `Load balancer does not contain an instance for the service library-book-service` | book-service is not running, or it never registered. Check the dashboard |
 | `Connection refused: localhost:8761` | The naming server is not running. Start it first |
-| `Port 8080 is already in use` | A copy is still running from earlier |
+| `Port 8090 is already in use` | A copy is still running from earlier. Note 8080 and 8081 are left free on purpose: that is where yesterday's 3-tier sample runs |
 | The POST answers 500 | Step 4 not finished, or step 5's `catch` blocks are missing |
 | `servedBy` is always 0 | Step 6 — `setServedBy` not added |
-| `servedBy` never changes | Only one copy of book-service is running |
+| `servedBy` never changes | Only one copy is running - or you tried too soon. transaction-service re-reads the list every few seconds |
 | The transaction list is empty after a restart | Correct. The database is in memory |
