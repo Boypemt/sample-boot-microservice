@@ -362,7 +362,41 @@ at two now, and the load balancer picks one per call. That is what the name boug
 you in step 1.
 
 Try this too: stop the copy on 8090 while the other one runs, and keep posting.
-The requests keep working. Compare that with 5b.
+The requests keep working — compare that with 5b, where stopping the *only* copy
+meant 503 for everybody.
+
+**Then watch it fail for the best part of a minute first.** Post a few times
+right after stopping the copy and some will still answer 503; GET the list and
+some rows come back with `bookTitle: null` while others are filled — the same
+book, different answers.
+
+Nothing is broken. The naming server has not noticed yet. Measured on a laptop,
+with everything in this project already tuned to be quick, the list stops showing
+nulls **about 40 seconds** after the copy is stopped. Untuned it is several
+minutes.
+
+Forty seconds for one dead process sounds absurd until you count what has to
+happen, because it is not one timer but four in a row:
+
+| Waiting on | Setting | Here |
+| --- | --- | --- |
+| the lease to expire | `lease-expiration-duration-in-seconds` | 15 (default 90) |
+| the server to sweep expired leases | `eviction-interval-timer-in-ms` | 5s (default 60s) |
+| the server's cached copy of the list | `response-cache-update-interval-ms` | 5s (default 30s) |
+| the caller to re-read the list | `registry-fetch-interval-seconds` | 5s (default 30s) |
+
+Each one is cheap on its own and they add up. This is the honest shape of service
+discovery: **the list is always slightly out of date, and everything downstream
+inherits that.** Nobody tells the callers anything; they find out by failing.
+
+This is worth more than the happy path. **Load balancing does not make failure go
+away — it makes failure partial.** Half your rows worked. In the 3-tier sample a
+request either worked or it did not; here a single list can be half right, and
+your code has to decide what to do about that. It already does: step 5c returns
+the rows anyway.
+
+(Stopping a service with Ctrl+C is politer than killing the window — a graceful
+shutdown deregisters immediately and the gap nearly disappears.)
 
 ✅ `itSaysWhichCopyAnswered` passes — `mvn test` is fully green.
 
@@ -414,4 +448,6 @@ Then: **`lab-web-microservice`**. Same shape, different domain.
 | `Unknown lifecycle phase ".run.arguments=..."` | PowerShell split the argument. Put quotes round the whole `-D...` — see step 6 |
 | `No qualifying bean of type 'th.mfu.book.BookMapper'`, or a `java.lang.Error` with no message | VS Code compiles into `target/` too and can leave a broken class there after you edit a mapper. `mvn clean` is not always enough — delete the `target` folders and build again |
 | `servedBy` never changes | Only one copy is running - or you tried too soon. transaction-service re-reads the list every few seconds |
+| After stopping one copy, some rows have `bookTitle` and some are null | Expected, for about 40 seconds. The stopped copy is still on the list, so every other call goes to it. Wait, then list again |
+| A stopped service never leaves the dashboard | The naming server's self-preservation is off in this project for exactly that reason. If you see it, check `naming-server/application.properties` is unmodified |
 | The transaction list is empty after a restart | Correct. The database is in memory |
