@@ -1,4 +1,4 @@
-package th.mfu.book;
+package th.mfu.member;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -25,9 +25,9 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 //       my name is X", so that nobody has to write down its address.
 @SpringBootApplication
 @EnableDiscoveryClient
-public class BookServiceApp {
+public class MemberServiceApp {
 
     public static void main(String[] args) {
-        SpringApplication.run(BookServiceApp.class, args);
+        SpringApplication.run(MemberServiceApp.class, args);
     }
 }

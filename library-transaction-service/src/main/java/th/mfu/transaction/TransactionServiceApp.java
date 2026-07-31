@@ -2,6 +2,8 @@ package th.mfu.transaction;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 
 /**
  * transaction-service. Port 8100.
@@ -25,6 +27,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 //
 //         No qualifying bean of type 'th.mfu.transaction.BookClient'
 @SpringBootApplication
+@EnableDiscoveryClient
+@EnableFeignClients
 public class TransactionServiceApp {
 
     public static void main(String[] args) {

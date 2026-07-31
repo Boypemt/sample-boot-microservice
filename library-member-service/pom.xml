@@ -7,13 +7,12 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>library-transaction-service</artifactId>
+    <artifactId>library-member-service</artifactId>
     <packaging>jar</packaging>
 
     <!--
-        Owns member information. It does NOT own books, and it has no way to read the
-        book table - look at the dependencies below: library-book-service is not
-        one of them. It has to ASK over HTTP, and openfeign is what it asks with.
+        Owns members, and owns THE DATABASE THEY LIVE IN. No other service may
+        read that table. The only way to get a member is to ask this service.
     -->
     <dependencies>
         <dependency>
@@ -30,6 +29,7 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- lets this service register itself with the naming server -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
@@ -40,17 +40,6 @@
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
             <version>${mapstruct.version}</version>
-        </dependency>
-
-        <!-- Feign: write an interface, get an HTTP client -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-openfeign</artifactId>
-        </dependency>
-        <!-- picks one instance when a service is running more than once -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
         </dependency>
 
         <dependency>

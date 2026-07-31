@@ -1,5 +1,6 @@
 package th.mfu.transaction;
 
+import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 //
 //       Never put a URL here. A URL is one machine and one port. A name can be
 //       two copies on two ports, which is step 6.
+@FeignClient(name = "library-book-service")
 public interface BookClient {
 
     @GetMapping("/api/books/{id}")

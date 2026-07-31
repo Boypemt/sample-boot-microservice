@@ -47,8 +47,8 @@ public class TransactionController {
 
     // TODO: (step 4) Let Spring give you the Feign client you annotated in step 3:
     //
-    //   @Autowired
-    //   private BookClient bookClient;
+    @Autowired
+    private BookClient bookClient;
     //
     // You never write `new BookClient()`. There is no class to instantiate -
     // Feign built one for you at startup.
@@ -58,49 +58,21 @@ public class TransactionController {
      */
     @PostMapping("/transactions")
     public ResponseEntity<TransactionDTO> record(@RequestBody TransactionDTO dto) {
+        BookDTO bookdto = null;
+        try{
+            bookdto = bookClient.getBook(dto.getBookId());
+        } catch (Exception e) {
+            LOGGER.error("Book does not exist: {}", dto.getBookId());
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }  
+        Transaction transaction = transactionMapper.toEntity(dto);
+        transaction.setTransactionDate(LocalDate.now());
+        Transaction saved = transactionRepository.save(transaction);
 
-        // TODO: (step 4) Ask library-book-service whether this book exists, and
-        //       what it is called:
-        //
-        //         BookDTO book = bookClient.getBook(dto.getBookId());
-        //
-        //       One line, and it is an HTTP request to another program. Watch the
-        //       console of book-service when you run it: you will see the call
-        //       arrive there.
-        //
-        // TODO: (step 4) Save the transaction. The mapper turns the DTO into a
-        //       row, and the date is yours to set - not the caller's, or a client
-        //       could backdate a borrow:
-        //
-        //         Transaction transaction = transactionMapper.toEntity(dto);
-        //         transaction.setTransactionDate(LocalDate.now());
-        //         Transaction saved = transactionRepository.save(transaction);
-        //
-        // TODO: (step 4) Answer 201 with the saved transaction PLUS the two
-        //       fields that came from the other service:
-        //
-        //         TransactionDTO result = transactionMapper.toDto(saved);
-        //         result.setBookTitle(book.getTitle());
-        //         result.setServedBy(book.getServedBy());
-        //
-        // TODO: (step 5) The book might not exist. Feign does not return an empty
-        //       Optional - it THROWS. Wrap the call:
-        //
-        //         catch (FeignException.NotFound e) -> answer 400
-        //
-        //       (import feign.FeignException)
-        //
-        // TODO: (step 5) book-service might be down altogether. That is a
-        //       different failure and deserves a different answer:
-        //
-        //         catch (Exception e) -> answer 503 SERVICE_UNAVAILABLE
-        //
-        //       Try it: stop book-service and post a transaction. Without this
-        //       catch the client gets a 500 and a stack trace. With it, the
-        //       client is told something true - "the part I need is not
-        //       available right now".
-
-        return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        TransactionDTO result = transactionMapper.toDto(saved);
+        result.setBookTitle(bookdto.getTitle());
+        result.setServedBy(bookdto.getServedBy());
+        return new ResponseEntity<>(result, HttpStatus.CREATED);
     }
 
     /**
@@ -116,25 +88,9 @@ public class TransactionController {
 
             TransactionDTO dto = transactionMapper.toDto(transaction);
 
-            // TODO: (step 4) Fill in the title for this row, the same way the
-            //       POST above does it:
-            //
-            //         BookDTO book = bookClient.getBook(transaction.getBookId());
-            //         dto.setBookTitle(book.getTitle());
-            //         dto.setServedBy(book.getServedBy());
-            //
-            // TODO: (step 5) Wrap that in a try/catch. If book-service does not
-            //       answer, log it and leave bookTitle null - do NOT return 503
-            //       here.
-            //
-            //       Think about why this differs from the POST: a borrow that was
-            //       never checked is worthless, so 503 is right there. A list is
-            //       still true without the titles, so throwing it away would be
-            //       worse than returning it incomplete.
-            //
-            //       Then count the requests. Ten transactions, ten HTTP calls.
-            //       The 3-tier version did this with one join. That is what the
-            //       split costs, and the next lesson is about paying less.
+            BookDTO book = bookClient.getBook(transaction.getBookId());
+            dto.setBookTitle(book.getTitle());
+            dto.setServedBy(book.getServedBy());
 
             result.add(dto);
         }

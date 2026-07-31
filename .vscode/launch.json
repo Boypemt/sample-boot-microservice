@@ -3,6 +3,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "TransactionServiceApp",
+            "request": "launch",
+            "mainClass": "th.mfu.transaction.TransactionServiceApp",
+            "projectName": "th.mfu-library-transaction-service"
+        },
+        {
+            "type": "java",
             "name": "1. Naming server (8761)",
             "request": "launch",
             "mainClass": "th.mfu.namingserver.NamingServerApp",

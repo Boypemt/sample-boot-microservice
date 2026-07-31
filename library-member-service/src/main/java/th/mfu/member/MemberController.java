@@ -1,4 +1,4 @@
-package th.mfu.book;
+package th.mfu.member;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The REST service for books. Nothing new here - this is the same kind of
+ * The REST service for members. Nothing new here - this is the same kind of
  * controller you wrote in the 3-tier sample.
  * <p>
  * In this project it plays a new role: it is the service that ANOTHER service
@@ -22,10 +22,10 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api")
-public class BookController {
+public class MemberController {
 
     @Autowired
-    private BookRepository bookRepository;
+    private MemberRepository memberRepository;
 
     /**
      * Tells us the port this copy of the service is running on.
@@ -39,24 +39,24 @@ public class BookController {
      * it a bean, so it can be injected like any other. Already done for you.
      */
     @Autowired
-    private BookMapper bookMapper;
+    private MemberMapper memberMapper;
 
-    @GetMapping("/books")
-    public ResponseEntity<List<BookDTO>> listBooks() {
-        List<BookDTO> books = new ArrayList<>();
-        for (Book book : bookRepository.findAll()) {
-            books.add(bookMapper.toDto(book, thisPort()));
+    @GetMapping("/members")
+    public ResponseEntity<List<MemberDTO>> listMembers() {
+        List<MemberDTO> members = new ArrayList<>();
+        for (Member member : memberRepository.findAll()) {
+            members.add(memberMapper.toDto(member, thisPort()));
         }
-        return new ResponseEntity<>(books, HttpStatus.OK);
+        return new ResponseEntity<>(members, HttpStatus.OK);
     }
 
-    @GetMapping("/books/{id}")
-    public ResponseEntity<BookDTO> getBook(@PathVariable Long id) {
-        Optional<Book> book = bookRepository.findById(id);
-        if (!book.isPresent()) {
+    @GetMapping("/members/{id}")
+    public ResponseEntity<MemberDTO> getMember(@PathVariable Long id) {
+        Optional<Member> member = memberRepository.findById(id);
+        if (!member.isPresent()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        return new ResponseEntity<>(bookMapper.toDto(book.get(), thisPort()), HttpStatus.OK);
+        return new ResponseEntity<>(memberMapper.toDto(member.get(), thisPort()), HttpStatus.OK);
     }
 
     /**

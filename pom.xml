@@ -25,6 +25,7 @@
         <module>naming-server</module>
         <module>library-book-service</module>
         <module>library-transaction-service</module>
+        <module>library-member-service</module>
     </modules>
 
     <properties>

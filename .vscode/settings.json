@@ -11,5 +11,6 @@
     // "mvn clean" does not fix it, because the extension writes the broken class
     // straight back. If it happens anyway, run the command
     // "Java: Clean Java Language Server Workspace" and reload.
-    "java.configuration.updateBuildConfiguration": "automatic"
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.compile.nullAnalysis.mode": "automatic"
 }
